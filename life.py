@@ -1,8 +1,3 @@
-import sys
-import tty
-import termios
-
-
 class Cell:
     def __init__(self, alive=False):
         self.alive = alive
@@ -47,54 +42,3 @@ class Board:
                     alive = neighbors == 3
                 new_cells.append(Cell(alive))
         self.cells = new_cells
-
-    def display(self, generation):
-        print(f"\033[H\033[J", end="")  # clear screen
-        print(f"Conway's Game of Life  |  Generation: {generation}")
-        print(f"Press any arrow key to advance, Q to quit\n")
-        for row in range(self.size):
-            row_str = "  ".join(str(self.get(row, col)) for col in range(self.size))
-            print(row_str)
-
-
-def read_key():
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        ch = sys.stdin.read(1)
-        if ch == "\x1b":
-            ch2 = sys.stdin.read(1)
-            ch3 = sys.stdin.read(1)
-            return "arrow"
-        return ch
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
-
-
-def make_glider(board, row=1, col=1):
-    pattern = [
-        (0, 1), (1, 2), (2, 0), (2, 1), (2, 2)
-    ]
-    for dr, dc in pattern:
-        cell = board.get(row + dr, col + dc)
-        if cell:
-            cell.alive = True
-
-
-if __name__ == "__main__":
-    board = Board(size=10)
-    make_glider(board)
-
-    generation = 0
-    board.display(generation)
-
-    while True:
-        key = read_key()
-        if key in ("q", "Q", "\x03"):
-            print("\nBye!")
-            break
-        elif key == "arrow":
-            board.next_generation()
-            generation += 1
-            board.display(generation)
