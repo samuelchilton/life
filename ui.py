@@ -1,13 +1,25 @@
-import tkinter as tk
+import pygame
+import sys
 from life import Board, Cell
 
-
+SIZE = 10
 CELL_SIZE = 40
-ALIVE_COLOR = "#4ade80"
-DEAD_COLOR = "#1e1e2e"
-GRID_COLOR = "#2e2e3e"
-BG_COLOR = "#1e1e2e"
-TEXT_COLOR = "#cdd6f4"
+
+ALIVE_COLOR = (74, 222, 128)
+DEAD_COLOR = (42, 42, 62)
+GRID_COLOR = (0, 0, 0)
+BG_COLOR = (30, 30, 46)
+BTN_COLOR = (49, 50, 68)
+BTN_HOVER_COLOR = (69, 71, 90)
+TEXT_COLOR = (205, 214, 244)
+HINT_COLOR = (108, 112, 134)
+
+MARGIN = 10
+CANVAS_SIZE = SIZE * CELL_SIZE
+PANEL_H = 90
+WIN_W = CANVAS_SIZE + MARGIN * 2
+WIN_H = CANVAS_SIZE + PANEL_H + MARGIN * 2
+SPEED = 200  # ms between auto-steps
 
 
 def make_glider(board, row=1, col=1):
@@ -18,115 +30,121 @@ def make_glider(board, row=1, col=1):
             cell.alive = True
 
 
+class Button:
+    def __init__(self, rect, label):
+        self.rect = pygame.Rect(rect)
+        self.label = label
+
+    def draw(self, surface, font, mouse_pos):
+        color = BTN_HOVER_COLOR if self.rect.collidepoint(mouse_pos) else BTN_COLOR
+        pygame.draw.rect(surface, color, self.rect, border_radius=4)
+        text = font.render(self.label, True, TEXT_COLOR)
+        surface.blit(text, text.get_rect(center=self.rect.center))
+
+    def hit(self, pos):
+        return self.rect.collidepoint(pos)
+
+
 class GameUI:
-    def __init__(self, root, board):
-        self.root = root
-        self.board = board
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((WIN_W, WIN_H))
+        pygame.display.set_caption("Conway's Game of Life")
+
+        self.font = pygame.font.SysFont("Helvetica", 14)
+        self.small_font = pygame.font.SysFont("Helvetica", 11)
+
+        self.board = Board(size=SIZE)
+        make_glider(self.board)
         self.generation = 0
         self.running = False
-        self.speed = 200  # ms between auto-steps
+        self.last_step = 0
 
-        root.title("Conway's Game of Life")
-        root.configure(bg=BG_COLOR)
-        root.resizable(False, False)
-
-        canvas_size = board.size * CELL_SIZE
-        self.canvas = tk.Canvas(
-            root,
-            width=canvas_size,
-            height=canvas_size,
-            bg=BG_COLOR,
-            highlightthickness=0,
-        )
-        self.canvas.pack(padx=10, pady=(10, 0))
-        self.canvas.bind("<Button-1>", self.on_cell_click)
-
-        controls = tk.Frame(root, bg=BG_COLOR)
-        controls.pack(pady=10)
-
-        btn_style = {"bg": "#313244", "fg": TEXT_COLOR, "relief": "flat",
-                     "padx": 12, "pady": 6, "cursor": "hand2"}
-
-        self.step_btn = tk.Button(controls, text="Step →", command=self.step, **btn_style)
-        self.step_btn.pack(side="left", padx=4)
-
-        self.run_btn = tk.Button(controls, text="Run ▶", command=self.toggle_run, **btn_style)
-        self.run_btn.pack(side="left", padx=4)
-
-        reset_btn = tk.Button(controls, text="Reset", command=self.reset, **btn_style)
-        reset_btn.pack(side="left", padx=4)
-
-        self.gen_label = tk.Label(
-            root, text="Generation: 0", bg=BG_COLOR, fg=TEXT_COLOR, font=("Helvetica", 12)
-        )
-        self.gen_label.pack(pady=(0, 10))
-
-        hint = tk.Label(
-            root, text="Click cells to toggle  •  Arrow keys to step",
-            bg=BG_COLOR, fg="#6c7086", font=("Helvetica", 10)
-        )
-        hint.pack(pady=(0, 8))
-
-        root.bind("<Right>", lambda e: self.step())
-        root.bind("<Down>", lambda e: self.step())
-        root.bind("<space>", lambda e: self.toggle_run())
-
-        self.draw()
+        panel_y = CANVAS_SIZE + MARGIN * 2 + 8
+        self.btn_step = Button((MARGIN, panel_y, 80, 28), "Step ->")
+        self.btn_run = Button((MARGIN + 88, panel_y, 80, 28), "Run")
+        self.btn_reset = Button((MARGIN + 176, panel_y, 80, 28), "Reset")
+        self.buttons = [self.btn_step, self.btn_run, self.btn_reset]
 
     def draw(self):
-        self.canvas.delete("all")
-        size = self.board.size
-        for row in range(size):
-            for col in range(size):
-                x1 = col * CELL_SIZE
-                y1 = row * CELL_SIZE
-                x2 = x1 + CELL_SIZE
-                y2 = y1 + CELL_SIZE
+        self.screen.fill(BG_COLOR)
+
+        for row in range(SIZE):
+            for col in range(SIZE):
+                x = MARGIN + col * CELL_SIZE
+                y = MARGIN + row * CELL_SIZE
                 cell = self.board.get(row, col)
                 color = ALIVE_COLOR if cell.alive else DEAD_COLOR
-                self.canvas.create_rectangle(
-                    x1 + 1, y1 + 1, x2 - 1, y2 - 1,
-                    fill=color, outline=GRID_COLOR
-                )
-        self.gen_label.config(text=f"Generation: {self.generation}")
+                pygame.draw.rect(self.screen, color, (x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2))
+                pygame.draw.rect(self.screen, GRID_COLOR, (x, y, CELL_SIZE, CELL_SIZE), 1)
+
+        mouse_pos = pygame.mouse.get_pos()
+        for btn in self.buttons:
+            btn.draw(self.screen, self.font, mouse_pos)
+
+        gen_surf = self.font.render(f"Generation: {self.generation}", True, TEXT_COLOR)
+        self.screen.blit(gen_surf, (MARGIN, CANVAS_SIZE + MARGIN * 2 + 44))
+
+        hint_surf = self.small_font.render("Click cells to toggle  |  Arrow keys to step  |  Space to run", True, HINT_COLOR)
+        self.screen.blit(hint_surf, (MARGIN, CANVAS_SIZE + MARGIN * 2 + 66))
+
+        pygame.display.flip()
 
     def step(self):
         self.board.next_generation()
         self.generation += 1
-        self.draw()
 
     def toggle_run(self):
         self.running = not self.running
-        self.run_btn.config(text="Pause ⏸" if self.running else "Run ▶")
-        if self.running:
-            self._auto_step()
-
-    def _auto_step(self):
-        if self.running:
-            self.step()
-            self.root.after(self.speed, self._auto_step)
+        self.btn_run.label = "Pause" if self.running else "Run"
 
     def reset(self):
         self.running = False
-        self.run_btn.config(text="Run ▶")
+        self.btn_run.label = "Run"
         self.board.cells = [Cell() for _ in range(self.board.size ** 2)]
         make_glider(self.board)
         self.generation = 0
-        self.draw()
 
-    def on_cell_click(self, event):
-        col = event.x // CELL_SIZE
-        row = event.y // CELL_SIZE
-        cell = self.board.get(row, col)
-        if cell:
-            cell.alive = not cell.alive
+    def on_click(self, pos):
+        if self.btn_step.hit(pos):
+            self.step()
+            return
+        if self.btn_run.hit(pos):
+            self.toggle_run()
+            return
+        if self.btn_reset.hit(pos):
+            self.reset()
+            return
+        gx, gy = pos[0] - MARGIN, pos[1] - MARGIN
+        if 0 <= gx < CANVAS_SIZE and 0 <= gy < CANVAS_SIZE:
+            cell = self.board.get(gy // CELL_SIZE, gx // CELL_SIZE)
+            if cell:
+                cell.alive = not cell.alive
+
+    def run(self):
+        clock = pygame.time.Clock()
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    self.on_click(event.pos)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_RIGHT, pygame.K_DOWN):
+                        self.step()
+                    elif event.key == pygame.K_SPACE:
+                        self.toggle_run()
+
+            if self.running:
+                now = pygame.time.get_ticks()
+                if now - self.last_step >= SPEED:
+                    self.step()
+                    self.last_step = now
+
             self.draw()
+            clock.tick(60)
 
 
 if __name__ == "__main__":
-    board = Board(size=10)
-    make_glider(board)
-
-    root = tk.Tk()
-    GameUI(root, board)
-    root.mainloop()
+    GameUI().run()
