@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 from life import Board, Cell
 
 ALIVE_COLOR = (74, 222, 128)
@@ -67,7 +68,6 @@ class GameUI:
         self.small_font = pygame.font.SysFont("Helvetica", 11)
 
         self.board = Board(size=size)
-        make_glider(self.board)
         self.generation = 0
         self.running = False
         self.last_step = 0
@@ -80,7 +80,9 @@ class GameUI:
         self.btn_step = Button((16, panel_y, 80, 28), "Step ->")
         self.btn_run = Button((104, panel_y, 80, 28), "Run")
         self.btn_reset = Button((192, panel_y, 80, 28), "Reset")
-        self.buttons = [self.btn_step, self.btn_run, self.btn_reset]
+        self.btn_glider = Button((296, panel_y, 80, 28), "Glider")
+        self.btn_random = Button((384, panel_y, 80, 28), "Random")
+        self.buttons = [self.btn_step, self.btn_run, self.btn_reset, self.btn_glider, self.btn_random]
 
     def zoom(self, factor, mouse_pos):
         mx, my = mouse_pos
@@ -149,8 +151,18 @@ class GameUI:
         self.running = False
         self.btn_run.label = "Run"
         self.board.cells = [Cell() for _ in range(self.board.size ** 2)]
-        make_glider(self.board)
         self.generation = 0
+
+    def spawn_glider(self):
+        make_glider(self.board, row=1, col=1)
+
+    def spawn_random(self):
+        mid = self.size // 2 - 5
+        for dr in range(10):
+            for dc in range(10):
+                cell = self.board.get(mid + dr, mid + dc)
+                if cell:
+                    cell.alive = random.random() < 0.5
 
     def on_canvas_click(self, pos):
         x, y = pos
@@ -185,6 +197,10 @@ class GameUI:
                                     self.toggle_run()
                                 elif self.btn_reset.hit(pos):
                                     self.reset()
+                                elif self.btn_glider.hit(pos):
+                                    self.spawn_glider()
+                                elif self.btn_random.hit(pos):
+                                    self.spawn_random()
                             elif pos[1] < self.canvas_h:
                                 self.on_canvas_click(pos)
                         self.dragging = False
