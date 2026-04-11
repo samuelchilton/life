@@ -4,6 +4,7 @@ import random
 from life import Board, Cell
 
 ALIVE_COLOR = (74, 222, 128)
+RED_COLOR = (243, 139, 168)
 DEAD_COLOR = (42, 42, 62)
 GRID_COLOR = (0, 0, 0)
 BG_COLOR = (30, 30, 46)
@@ -13,19 +14,20 @@ BTN_HOVER_COLOR = (69, 71, 90)
 TEXT_COLOR = (205, 214, 244)
 HINT_COLOR = (108, 112, 134)
 
-PANEL_H = 70
+PANEL_H = 80
 SPEED = 200
 MIN_CELL = 3.0
 MAX_CELL = 80.0
 ZOOM_STEP = 1.15
 
 
-def make_glider(board, row=1, col=1):
+def make_glider(board, row=1, col=1, color='green'):
     pattern = [(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)]
     for dr, dc in pattern:
         cell = board.get(row + dr, col + dc)
         if cell:
             cell.alive = True
+            cell.color = color
 
 
 class Button:
@@ -71,6 +73,7 @@ class GameUI:
         self.generation = 0
         self.running = False
         self.last_step = 0
+        self.place_color = 'green'
 
         self.dragging = False
         self.drag_start = None
@@ -81,8 +84,10 @@ class GameUI:
         self.btn_run = Button((104, panel_y, 80, 28), "Run")
         self.btn_reset = Button((192, panel_y, 80, 28), "Reset")
         self.btn_glider = Button((296, panel_y, 80, 28), "Glider")
-        self.btn_random = Button((384, panel_y, 80, 28), "Random")
-        self.buttons = [self.btn_step, self.btn_run, self.btn_reset, self.btn_glider, self.btn_random]
+        self.btn_random = Button((384, panel_y, 100, 28), "Random 10x10")
+        self.btn_random_fill = Button((492, panel_y, 100, 28), "Random Fill")
+        self.btn_color = Button((600, panel_y, 100, 28), "Place: Green")
+        self.buttons = [self.btn_step, self.btn_run, self.btn_reset, self.btn_glider, self.btn_random, self.btn_random_fill, self.btn_color]
 
     def zoom(self, factor, mouse_pos):
         mx, my = mouse_pos
@@ -115,7 +120,10 @@ class GameUI:
                 w = int(ox + (col + 1) * cs) - x
                 h = int(oy + (row + 1) * cs) - y
                 cell = self.board.get(row, col)
-                color = ALIVE_COLOR if cell.alive else DEAD_COLOR
+                if cell.alive:
+                    color = ALIVE_COLOR if cell.color == 'green' else RED_COLOR
+                else:
+                    color = DEAD_COLOR
                 if cs > 5:
                     pygame.draw.rect(self.screen, color, (x + 1, y + 1, w - 2, h - 2))
                     pygame.draw.rect(self.screen, GRID_COLOR, (x, y, w, h), 1)
@@ -131,8 +139,18 @@ class GameUI:
         for btn in self.buttons:
             btn.draw(self.screen, self.font, mouse_pos)
 
+        green_count = sum(1 for c in self.board.cells if c.alive and c.color == 'green')
+        red_count = sum(1 for c in self.board.cells if c.alive and c.color == 'red')
+
+        right_x = self.win_w - 16
         gen_surf = self.font.render(f"Generation: {self.generation}", True, TEXT_COLOR)
-        self.screen.blit(gen_surf, (self.win_w - gen_surf.get_width() - 16, self.canvas_h + 14))
+        self.screen.blit(gen_surf, (right_x - gen_surf.get_width(), self.canvas_h + 10))
+
+        red_surf = self.font.render(f"Red: {red_count}", True, RED_COLOR)
+        self.screen.blit(red_surf, (right_x - red_surf.get_width(), self.canvas_h + 30))
+
+        green_surf = self.font.render(f"Green: {green_count}", True, ALIVE_COLOR)
+        self.screen.blit(green_surf, (right_x - green_surf.get_width(), self.canvas_h + 50))
 
         hint_surf = self.small_font.render("Click: toggle  |  Click drag: pan  |  Scroll: zoom  |  Space: run/pause  |  →: step", True, HINT_COLOR)
         self.screen.blit(hint_surf, (16, self.canvas_h + PANEL_H - 20))
@@ -154,7 +172,7 @@ class GameUI:
         self.generation = 0
 
     def spawn_glider(self):
-        make_glider(self.board, row=1, col=1)
+        make_glider(self.board, row=1, col=1, color=self.place_color)
 
     def spawn_random(self):
         mid = self.size // 2 - 5
@@ -163,6 +181,19 @@ class GameUI:
                 cell = self.board.get(mid + dr, mid + dc)
                 if cell:
                     cell.alive = random.random() < 0.5
+                    cell.color = random.choice(['green', 'red'])
+
+    def spawn_random_fill(self):
+        for row in range(self.size):
+            for col in range(self.size):
+                cell = self.board.get(row, col)
+                if cell:
+                    cell.alive = random.random() < 0.5
+                    cell.color = random.choice(['green', 'red'])
+
+    def toggle_place_color(self):
+        self.place_color = 'red' if self.place_color == 'green' else 'green'
+        self.btn_color.label = f"Place: {self.place_color.capitalize()}"
 
     def on_canvas_click(self, pos):
         x, y = pos
@@ -170,7 +201,11 @@ class GameUI:
         row = int((y - self.offset_y) / self.cell_size)
         cell = self.board.get(row, col)
         if cell:
-            cell.alive = not cell.alive
+            if cell.alive:
+                cell.alive = False
+            else:
+                cell.alive = True
+                cell.color = self.place_color
 
     def run(self):
         clock = pygame.time.Clock()
@@ -201,6 +236,10 @@ class GameUI:
                                     self.spawn_glider()
                                 elif self.btn_random.hit(pos):
                                     self.spawn_random()
+                                elif self.btn_random_fill.hit(pos):
+                                    self.spawn_random_fill()
+                                elif self.btn_color.hit(pos):
+                                    self.toggle_place_color()
                             elif pos[1] < self.canvas_h:
                                 self.on_canvas_click(pos)
                         self.dragging = False

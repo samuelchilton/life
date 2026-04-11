@@ -1,6 +1,7 @@
 class Cell:
-    def __init__(self, alive=False):
+    def __init__(self, alive=False, color='green'):
         self.alive = alive
+        self.color = color
 
     def __repr__(self):
         return "█" if self.alive else "·"
@@ -19,14 +20,14 @@ class Board:
             return self.cells[row * self.size + col]
         return None
 
-    def count_live_neighbors(self, row, col):
+    def count_live_neighbors(self, row, col, color):
         count = 0
         for dr in (-1, 0, 1):
             for dc in (-1, 0, 1):
                 if dr == 0 and dc == 0:
                     continue
                 neighbor = self.get(row + dr, col + dc)
-                if neighbor and neighbor.alive:
+                if neighbor and neighbor.alive and neighbor.color == color:
                     count += 1
         return count
 
@@ -35,10 +36,16 @@ class Board:
         for row in range(self.size):
             for col in range(self.size):
                 cell = self.get(row, col)
-                neighbors = self.count_live_neighbors(row, col)
                 if cell.alive:
-                    alive = neighbors in (2, 3)
+                    neighbors = self.count_live_neighbors(row, col, cell.color)
+                    new_cells.append(Cell(neighbors in (2, 3), cell.color))
                 else:
-                    alive = neighbors == 3
-                new_cells.append(Cell(alive))
+                    green_n = self.count_live_neighbors(row, col, 'green')
+                    red_n = self.count_live_neighbors(row, col, 'red')
+                    if green_n == 3 and red_n != 3:
+                        new_cells.append(Cell(True, 'green'))
+                    elif red_n == 3 and green_n != 3:
+                        new_cells.append(Cell(True, 'red'))
+                    else:
+                        new_cells.append(Cell(False))
         self.cells = new_cells
