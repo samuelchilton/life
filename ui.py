@@ -73,6 +73,7 @@ class GameUI:
         self.last_step = 0
 
         self.dragging = False
+        self.drag_start = None
         self.drag_pos = None
 
         panel_y = self.canvas_h + 12
@@ -131,7 +132,7 @@ class GameUI:
         gen_surf = self.font.render(f"Generation: {self.generation}", True, TEXT_COLOR)
         self.screen.blit(gen_surf, (self.win_w - gen_surf.get_width() - 16, self.canvas_h + 14))
 
-        hint_surf = self.small_font.render("Left click: toggle  |  Right drag: pan  |  Scroll: zoom  |  Space: run/pause  |  →: step", True, HINT_COLOR)
+        hint_surf = self.small_font.render("Click: toggle  |  Click drag: pan  |  Scroll: zoom  |  Space: run/pause  |  →: step", True, HINT_COLOR)
         self.screen.blit(hint_surf, (16, self.canvas_h + PANEL_H - 20))
 
         pygame.display.flip()
@@ -169,30 +170,36 @@ class GameUI:
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
-                        pos = event.pos
-                        if any(btn.hit(pos) for btn in self.buttons):
-                            if self.btn_step.hit(pos):
-                                self.step()
-                            elif self.btn_run.hit(pos):
-                                self.toggle_run()
-                            elif self.btn_reset.hit(pos):
-                                self.reset()
-                        elif pos[1] < self.canvas_h:
-                            self.on_canvas_click(pos)
-                    elif event.button == 3:
-                        self.dragging = True
+                        self.drag_start = event.pos
                         self.drag_pos = event.pos
-
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 3:
                         self.dragging = False
 
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        if not self.dragging and self.drag_start:
+                            pos = self.drag_start
+                            if any(btn.hit(pos) for btn in self.buttons):
+                                if self.btn_step.hit(pos):
+                                    self.step()
+                                elif self.btn_run.hit(pos):
+                                    self.toggle_run()
+                                elif self.btn_reset.hit(pos):
+                                    self.reset()
+                            elif pos[1] < self.canvas_h:
+                                self.on_canvas_click(pos)
+                        self.dragging = False
+                        self.drag_start = None
+
                 elif event.type == pygame.MOUSEMOTION:
-                    if self.dragging and self.drag_pos:
+                    if self.drag_start and event.buttons[0]:
                         dx = event.pos[0] - self.drag_pos[0]
                         dy = event.pos[1] - self.drag_pos[1]
-                        self.offset_x += dx
-                        self.offset_y += dy
+                        moved = abs(event.pos[0] - self.drag_start[0]) + abs(event.pos[1] - self.drag_start[1])
+                        if moved > 4:
+                            self.dragging = True
+                        if self.dragging:
+                            self.offset_x += dx
+                            self.offset_y += dy
                         self.drag_pos = event.pos
 
                 elif event.type == pygame.MOUSEWHEEL:
