@@ -2,7 +2,6 @@ import pygame
 import sys
 from life import Board, Cell
 
-SIZE = 10
 CELL_SIZE = 40
 
 ALIVE_COLOR = (74, 222, 128)
@@ -15,10 +14,7 @@ TEXT_COLOR = (205, 214, 244)
 HINT_COLOR = (108, 112, 134)
 
 MARGIN = 10
-CANVAS_SIZE = SIZE * CELL_SIZE
 PANEL_H = 90
-WIN_W = CANVAS_SIZE + MARGIN * 2
-WIN_H = CANVAS_SIZE + PANEL_H + MARGIN * 2
 SPEED = 200  # ms between auto-steps
 
 
@@ -46,21 +42,26 @@ class Button:
 
 
 class GameUI:
-    def __init__(self):
+    def __init__(self, size):
+        self.size = size
+        self.canvas_size = size * CELL_SIZE
+        win_w = self.canvas_size + MARGIN * 2
+        win_h = self.canvas_size + PANEL_H + MARGIN * 2
+
         pygame.init()
-        self.screen = pygame.display.set_mode((WIN_W, WIN_H))
+        self.screen = pygame.display.set_mode((win_w, win_h))
         pygame.display.set_caption("Conway's Game of Life")
 
         self.font = pygame.font.SysFont("Helvetica", 14)
         self.small_font = pygame.font.SysFont("Helvetica", 11)
 
-        self.board = Board(size=SIZE)
+        self.board = Board(size=size)
         make_glider(self.board)
         self.generation = 0
         self.running = False
         self.last_step = 0
 
-        panel_y = CANVAS_SIZE + MARGIN * 2 + 8
+        panel_y = self.canvas_size + MARGIN * 2 + 8
         self.btn_step = Button((MARGIN, panel_y, 80, 28), "Step ->")
         self.btn_run = Button((MARGIN + 88, panel_y, 80, 28), "Run")
         self.btn_reset = Button((MARGIN + 176, panel_y, 80, 28), "Reset")
@@ -69,8 +70,8 @@ class GameUI:
     def draw(self):
         self.screen.fill(BG_COLOR)
 
-        for row in range(SIZE):
-            for col in range(SIZE):
+        for row in range(self.size):
+            for col in range(self.size):
                 x = MARGIN + col * CELL_SIZE
                 y = MARGIN + row * CELL_SIZE
                 cell = self.board.get(row, col)
@@ -83,10 +84,10 @@ class GameUI:
             btn.draw(self.screen, self.font, mouse_pos)
 
         gen_surf = self.font.render(f"Generation: {self.generation}", True, TEXT_COLOR)
-        self.screen.blit(gen_surf, (MARGIN, CANVAS_SIZE + MARGIN * 2 + 44))
+        self.screen.blit(gen_surf, (MARGIN, self.canvas_size + MARGIN * 2 + 44))
 
         hint_surf = self.small_font.render("Click cells to toggle  |  Arrow keys to step  |  Space to run", True, HINT_COLOR)
-        self.screen.blit(hint_surf, (MARGIN, CANVAS_SIZE + MARGIN * 2 + 66))
+        self.screen.blit(hint_surf, (MARGIN, self.canvas_size + MARGIN * 2 + 66))
 
         pygame.display.flip()
 
@@ -116,7 +117,7 @@ class GameUI:
             self.reset()
             return
         gx, gy = pos[0] - MARGIN, pos[1] - MARGIN
-        if 0 <= gx < CANVAS_SIZE and 0 <= gy < CANVAS_SIZE:
+        if 0 <= gx < self.canvas_size and 0 <= gy < self.canvas_size:
             cell = self.board.get(gy // CELL_SIZE, gx // CELL_SIZE)
             if cell:
                 cell.alive = not cell.alive
@@ -147,4 +148,5 @@ class GameUI:
 
 
 if __name__ == "__main__":
-    GameUI().run()
+    size = int(sys.argv[1]) if len(sys.argv) > 1 else 10
+    GameUI(size).run()
