@@ -15,7 +15,8 @@ TEXT_COLOR = (205, 214, 244)
 HINT_COLOR = (108, 112, 134)
 
 PANEL_H = 80
-SPEED = 200
+SPEED = 0
+MAX_GENERATIONS = 100
 MIN_CELL = 3.0
 MAX_CELL = 80.0
 ZOOM_STEP = 1.15
@@ -43,6 +44,7 @@ class Button:
 
     def hit(self, pos):
         return self.rect.collidepoint(pos)
+
 
 
 class GameUI:
@@ -153,13 +155,16 @@ class GameUI:
         self.screen.blit(green_surf, (right_x - green_surf.get_width(), self.canvas_h + 50))
 
         hint_surf = self.small_font.render("Click: toggle  |  Click drag: pan  |  Scroll: zoom  |  Space: run/pause  |  →: step", True, HINT_COLOR)
-        self.screen.blit(hint_surf, (16, self.canvas_h + PANEL_H - 20))
+        self.screen.blit(hint_surf, (16, self.canvas_h + PANEL_H - 18))
 
         pygame.display.flip()
 
     def step(self):
         self.board.next_generation()
         self.generation += 1
+        if self.generation >= MAX_GENERATIONS:
+            self.running = False
+            self.btn_run.label = "Run"
 
     def toggle_run(self):
         self.running = not self.running
