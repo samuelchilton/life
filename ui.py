@@ -73,9 +73,8 @@ class GameUI:
 
         self.board = Board(size=size)
         self.generation = 0
-        self.running = False
-        self.last_step = 0
         self.place_color = 'green'
+        self.render_live = False
 
         self.dragging = False
         self.drag_start = None
@@ -89,7 +88,8 @@ class GameUI:
         self.btn_random = Button((384, panel_y, 100, 28), "Random 10x10")
         self.btn_random_fill = Button((492, panel_y, 100, 28), "Random Fill")
         self.btn_color = Button((600, panel_y, 100, 28), "Place: Green")
-        self.buttons = [self.btn_step, self.btn_run, self.btn_reset, self.btn_glider, self.btn_random, self.btn_random_fill, self.btn_color]
+        self.btn_render = Button((708, panel_y, 110, 28), "Render: Final")
+        self.buttons = [self.btn_step, self.btn_run, self.btn_reset, self.btn_glider, self.btn_random, self.btn_random_fill, self.btn_color, self.btn_render]
 
     def zoom(self, factor, mouse_pos):
         mx, my = mouse_pos
@@ -162,13 +162,22 @@ class GameUI:
     def step(self):
         self.board.next_generation()
         self.generation += 1
-        if self.generation >= MAX_GENERATIONS:
-            self.running = False
-            self.btn_run.label = "Run"
 
     def toggle_run(self):
-        self.running = not self.running
-        self.btn_run.label = "Pause" if self.running else "Run"
+        if self.render_live:
+            for _ in range(MAX_GENERATIONS):
+                self.board.next_generation()
+                self.generation += 1
+                self.draw()
+        else:
+            self.draw()
+            for _ in range(MAX_GENERATIONS):
+                self.board.next_generation()
+                self.generation += 1
+
+    def toggle_render_mode(self):
+        self.render_live = not self.render_live
+        self.btn_render.label = "Render: Live" if self.render_live else "Render: Final"
 
     def reset(self):
         self.running = False
@@ -245,6 +254,8 @@ class GameUI:
                                     self.spawn_random_fill()
                                 elif self.btn_color.hit(pos):
                                     self.toggle_place_color()
+                                elif self.btn_render.hit(pos):
+                                    self.toggle_render_mode()
                             elif pos[1] < self.canvas_h:
                                 self.on_canvas_click(pos)
                         self.dragging = False
@@ -271,12 +282,6 @@ class GameUI:
                         self.step()
                     elif event.key == pygame.K_SPACE:
                         self.toggle_run()
-
-            if self.running:
-                now = pygame.time.get_ticks()
-                if now - self.last_step >= SPEED:
-                    self.step()
-                    self.last_step = now
 
             self.draw()
             clock.tick(60)
